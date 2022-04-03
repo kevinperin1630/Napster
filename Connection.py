@@ -1,4 +1,3 @@
-import os
 import hashlib
 
 class MessagesP2P:
@@ -191,19 +190,19 @@ class File:
 
     @staticmethod
     def FileData(path):
-        f = open(path, "rb")
-        buffer = f.read()
-        f.close
+        with open(path, "rb") as f:
+            buffer = f.read()
         return buffer
 
     @staticmethod
     def FileChunks(path):
         chunks = []
-        while True:
-            buffer = os.read(path, 4096)
-            if not buffer: 
-                break
-            chunks.append(buffer)
+        with open(path, "rb") as f:
+            while True:
+                buffer = f.read(4096)
+                if not buffer: 
+                    break
+                chunks.append(buffer)
         return chunks
 
     @staticmethod 

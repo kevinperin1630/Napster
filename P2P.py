@@ -1,5 +1,6 @@
 import FrontEnd
 import Connection
+from Connection import File
 import socket
 import sys
 import random
@@ -25,6 +26,7 @@ def OfferFiles(fileList):
 def Logout():
     p2p.LogoutRequest(s)
     deleted = p2p.Read(s)
+    s.close()
     print("Logout. %e file rimossi dalla rete" %deleted)
     exit(1)
 
@@ -42,7 +44,7 @@ server_port = 80
 p2p = Connection.MessagesP2P(socket.gethostname(), random.randint(50000, 52000))
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((server_hostname,int(server_port)))
+s.connect((server_hostname, int(server_port)))
 
 s_offer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s_offer.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -68,7 +70,18 @@ else:
 if action == 1:
     search_string = TDinputscreen()
     p2p.FindFileRequest(s, search_string)
-    p2p.Read(s)
+    num_found, fileList = p2p.Read(s)
+    file_wanted, p2p_hostname, p2p_port = TDshowresults()
+
+    #crea connessione con peer "server"
+    s_download = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s_download.connect((p2p_hostname, int(p2p_port)))
+
+    p2p.RetriveFileRequest(s_download, file_wanted.md5)
+    buffer = p2p.Read(s_download)
+    s_download.close()
+    with open(file_wanted.nome, 'w') as f:
+        f.write(buffer)
 elif action == 2:
     shortMenu = False
     fileList = FilesInDir(pathOfferDir)
