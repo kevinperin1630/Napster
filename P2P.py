@@ -49,6 +49,27 @@ s.connect((server_hostname, int(server_port)))
 s_offer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s_offer.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 s_offer.bind((p2p.ip, p2p.port))
+pid = os.fork()
+if pid == 0:
+    s_offer.listen()
+    while True:
+        conn, addr = s_offer.accept()
+        pid1 = os.fork()
+        if pid1 == 0:
+            md5 = p2p.Read(conn)
+            fileList = FilesInDir(pathOfferDir)
+            for file in fileList:
+                if md5 == file.md5:
+                    filePath = "%s\\%s" %(pathOfferDir, file.name)
+                    with open(filePath, "rb") as f:
+                        num_chunk = 0
+                        while True:
+                            buffer = f.read(4096)
+                            if not buffer: 
+                                break
+                            num_chunk += 1
+                            p2p.SendFile(conn, num_chunk, buffer)
+            pid1.kill()
 
 fileList = []
 
@@ -73,7 +94,6 @@ if action == 1:
     num_found, fileList = p2p.Read(s)
     file_wanted, p2p_hostname, p2p_port = TDshowresults()
 
-    #crea connessione con peer "server"
     s_download = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s_download.connect((p2p_hostname, int(p2p_port)))
 
@@ -86,21 +106,6 @@ elif action == 2:
     shortMenu = False
     fileList = FilesInDir(pathOfferDir)
     OfferFiles(fileList)
-
-    #apri istanza "server"
-    s_offer.listen()
-    while True:
-        conn, addr = s_offer.accept()
-        pid = os.fork()
-        if pid == 0:
-            md5 = p2p.Read(conn)
-            for file in fileList:
-                if md5 == file.md5:
-                    filePath = "%s\\%s" %(pathOfferDir, file.name)
-                    chunks = File.FileChunks(filePath)
-                    p2p.SendFile(conn, chunks)
-            pid.kill()
-
 elif action == 3 and shortMenu:
     Logout()
 elif action == 3:
@@ -111,7 +116,5 @@ elif action == 3:
     fileNames = os.listdir(pathOfferDir)
     if len(fileList) == 0:
         shortMenu = True
-        #chiudi istanza "sever"
-        #conn.close()
 elif action == 4 and not shortMenu:
     Logout()

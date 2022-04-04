@@ -8,12 +8,12 @@ class MessagesP2P:
 
     def LoginRequest(self, s):
         ip = self.ip
-        Messages.Fill(ip, 15)
+        ip = Messages.Fill(ip, 15)
         packet = "LOGI%s%s" %(ip, self.port)
         s.send(packet.encode())
 
     def AddFileRequest(self, s, md5, filename):
-        Messages.Fill(filename, 100)
+        filename = Messages.Fill(filename, 100)
         packet = "ADDF%s%s%s" %(self.sessionId, md5, filename)
         s.send(packet.encode())
 
@@ -22,7 +22,7 @@ class MessagesP2P:
         s.send(packet.encode())
 
     def FindFileRequest(self, s, search_string):
-        Messages.Fill(search_string, 20)
+        search_string = Messages.Fill(search_string, 20)
         packet = "FIND%s%s" %(self.sessionId, search_string)
         s.send(packet.encode())
 
@@ -34,15 +34,18 @@ class MessagesP2P:
         packet = "LOGO%s" %self.sessionId
         s.send(packet.encode())
 
-    def SendFile(self, s, chunks):
-        packet = "ARET%s" %len(chunks)
-        for chunk in chunks:
-            dim_chunk = Messages.Fill(len(chunk), 5)
-            packet += dim_chunk
-            packet += chunk
+    def SendFile(self, s, chunk_id, chunk):
+        len_chunk = len(chunk)
+        chunk_id = Messages.Fill(chunk_id, 6)
+        len_chunk = Messages.Fill(len_chunk)
+        packet = "ARET%s%s%s" %(chunk_id, len_chunk, chunk)
         s.send(packet.encode())
 
-    #manca invio richiesta RREG
+    def RegisterRequest(self, s, md5, ip_p2p, port_p2p):
+        ip_p2p = Messages.Fill(ip_p2p, 15)
+        port_p2p = Messages.Fill(port_p2p, 5)
+        packet = "RREG%s%s%s%s" %(self.sessionId, md5, ip_p2p, port_p2p)
+        s.send(packet.encode())
 
     def Read(self, s):
         buffer = Messages.ReadBuffer(s)
@@ -74,26 +77,16 @@ class MessagesP2P:
             return num_found, result
         elif messageHeader == "ARET":
             num_chunk = Messages.DeFill(buffer[4:10])
-            field = 10
-            content = []
-            for i1 in range(num_chunk):
-                len_chunk = Messages.DeFill(buffer[field:field + 5])
-                field += 5
-                data = buffer[field:field + len_chunk]
-                content.append(data)
-                field += len_chunk
-            return content
+            len_chunk = Messages.DeFill(buffer[10:15])
+            field = int(len_chunk)
+            chunk = buffer[15:15 + field]
+            return num_chunk, chunk
         elif messageHeader == "RETR":
             md5 = buffer[4:36]
             return md5
-        elif messageHeader == "RNUM":    #INCOMPLETO
-            print("f")
-
-    def CheckIP(self):
-        return self.ip
-    
-    def CheckPort(self):
-        return self.port
+        elif messageHeader == "ARRE":
+            num_download = Messages.DeFill(buffer[4:9])
+            return num_download
 
 class MessagesServer:
     @staticmethod
@@ -103,24 +96,42 @@ class MessagesServer:
 
     @staticmethod
     def AddFileAnswer(s, num_copies):
-        Messages.Fill(num_copies, 3)
+        num_copies = Messages.Fill(num_copies, 3)
         packet = "AADD%s" %num_copies
         s.send(packet.encode())
 
     @staticmethod
     def RemoveFileAnswer(s, num_copies):
-        Messages.Fill(num_copies, 3)
+        num_copies = Messages.Fill(num_copies, 3)
         packet = "ADEL%s" %num_copies
         s.send(packet.encode())
 
     @staticmethod
-    def FindFileAnswer(s, num_copies):
-        print("f")
+    def FindFileAnswer(s, files):
+        num_result = len(files)
+        num_result = Messages.Fill(num_result, 3)
+        packet = "AFIN%s" %num_result
+        for f in files:
+            md5 = f.md5
+            nome = f.nome
+            num_copies = len(f.peers)
+            nome = Messages.Fill(nome, 100)
+            num_copies = Messages.Fill(num_copies, 3)
+            packet += md5
+            packet += nome
+            packet += num_copies
+        s.send(packet.encode())
 
     @staticmethod
     def LogoutAnswer(s, num_files):
-        Messages.Fill(num_files, 3)
+        num_files = Messages.Fill(num_files, 3)
         packet = "ALGO%s" %num_files
+        s.send(packet.encode())
+
+    @staticmethod
+    def DownloadAnswer(s, num_download):
+        num_download = Messages.Fill(num_download, 5)
+        packet = "ARRE%s" %num_download
         s.send(packet.encode())
 
     @staticmethod
@@ -144,9 +155,12 @@ class MessagesServer:
             sessionId = buffer[4:19]
             search_string = Messages.DeFill(buffer[19:39])
             return sessionId, search_string
-        elif messageHeader == "RREG":    #INCOMPLETO
+        elif messageHeader == "RREG":
             sessionId = buffer[4:19]
-            return sessionId
+            md5 = buffer[19:51]
+            ip_p2p = Messages.DeFill(buffer[51:66])
+            port_p2p = Messages.DeFill(buffer[66:71])
+            return sessionId, md5, ip_p2p, port_p2p
         elif messageHeader == "LOGO":
             sessionId = buffer[4:19]
             return sessionId
@@ -168,7 +182,7 @@ class Messages:
     def Fill(string, dim):
         if (len(string) < dim):
             for i in range(dim - len(string)):
-                string = string.append('|')
+                string += '|'
         return string
 
     @staticmethod
@@ -185,25 +199,11 @@ class File:
     def AddOfferingP2P(self, ip, port):
         self.peers.append(MessagesP2P(ip, port))
 
-    def CheckPeers(self):
-        return self.peers
-
     @staticmethod
     def FileData(path):
         with open(path, "rb") as f:
             buffer = f.read()
         return buffer
-
-    @staticmethod
-    def FileChunks(path):
-        chunks = []
-        with open(path, "rb") as f:
-            while True:
-                buffer = f.read(4096)
-                if not buffer: 
-                    break
-                chunks.append(buffer)
-        return chunks
 
     @staticmethod 
     def CalculateMD5(buffer):
