@@ -1,6 +1,5 @@
 import FrontEnd
-import Connection
-from Connection import File
+from Connection import MessagesP2P, File
 import socket
 import sys
 import random
@@ -30,27 +29,7 @@ def Logout():
     print("Logout. %e file rimossi dalla rete" %deleted)
     exit(1)
 
-if (len(sys.argv) != 2):
-    print("Errore! Numero di argomenti al lancio errato!")
-    exit(1)
-else:
-    server_hostname = sys.argv[1]   #risolvere caso in cui si scriva male indirizzo ip
-
-dir_name = "FileOffered"
-pathOfferDir = "%s\\%s" %(os.path.dirname(os.path.abspath(__file__)), dir_name)
-shortMenu = True
-
-server_port = 80
-p2p = Connection.MessagesP2P(socket.gethostname(), random.randint(50000, 52000))
-
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((server_hostname, int(server_port)))
-
-s_offer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s_offer.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s_offer.bind((p2p.ip, p2p.port))
-pid = os.fork()
-if pid == 0:
+def ChildAction(s_offer):
     s_offer.listen()
     while True:
         conn, addr = s_offer.accept()
@@ -71,6 +50,38 @@ if pid == 0:
                             p2p.SendFile(conn, num_chunk, buffer)
             pid1.kill()
 
+def Download(file_wanted):
+    with open(file_wanted.nome, 'a') as f:
+        while True:
+            chunk = p2p.Read(s_download)
+            f.write(chunk[0])
+            if len(chunk[0]) < 4096:
+                break
+
+if (len(sys.argv) != 2):
+    print("Errore! Numero di argomenti al lancio errato!")
+    exit(1)
+else:
+    server_hostname = sys.argv[1]   #risolvere caso in cui si scriva male indirizzo ip
+
+dir_name = "FileOffered"
+pathOfferDir = "%s\\%s" %(os.path.dirname(os.path.abspath(__file__)), dir_name)
+shortMenu = True
+
+server_port = 80
+p2p = MessagesP2P(socket.gethostname(), random.randint(50000, 52000))
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((server_hostname, int(server_port)))
+
+s_offer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s_offer.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s_offer.bind((p2p.ip, p2p.port))
+
+pid = os.fork()
+if pid == 0:
+    ChildAction(s_offer)
+
 fileList = []
 
 while True:
@@ -78,43 +89,46 @@ while True:
     p2p.Read(s)
 
     if (p2p.sessionId == "0000000000000000"):
-        print("Login non è possibile")
+        print("Login non e' possibile")
     else:
         print("Login effettuato")
         break
 
 if shortMenu:
-    action = TDmainmenu()
+    action = FrontEnd.ShortMenu()
 else:
-    action = TDmainmenu2()
+    action = FrontEnd.LongMenu()
 
 if action == 1:
-    search_string = TDinputscreen()
+    search_string = FrontEnd.SearchString()
     p2p.FindFileRequest(s, search_string)
     num_found, fileList = p2p.Read(s)
-    file_wanted, p2p_hostname, p2p_port = TDshowresults()
+    file_wanted, p2p_hostname, p2p_port = FrontEnd.SearchResult()
 
     s_download = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s_download.connect((p2p_hostname, int(p2p_port)))
 
     p2p.RetriveFileRequest(s_download, file_wanted.md5)
-    buffer = p2p.Read(s_download)
+    Download(file_wanted)
     s_download.close()
-    with open(file_wanted.nome, 'w') as f:
-        f.write(buffer)
+
 elif action == 2:
     shortMenu = False
     fileList = FilesInDir(pathOfferDir)
     OfferFiles(fileList)
+
 elif action == 3 and shortMenu:
     Logout()
+
 elif action == 3:
-    md5 = TDsearchFile()
+    md5 = FrontEnd.SelectFile()
     p2p.RemoveFileRequest(s, md5)
     num_copies = p2p.Read(s)
     print("Nella rete esistono %s copie di %s" %(num_copies, md5))
     fileNames = os.listdir(pathOfferDir)
     if len(fileList) == 0:
         shortMenu = True
+
 elif action == 4 and not shortMenu:
+    pid.kill()
     Logout()

@@ -141,29 +141,29 @@ class MessagesServer:
         if messageHeader == "LOGI":
             ip = Messages.DeFill(buffer[4:19])
             port = Messages.DeFill(buffer[19:24])
-            return ip, port
+            return messageHeader, ip, port
         elif messageHeader == "ADDF":
             sessionId = buffer[4:19]
             md5 = buffer[19:51]
             filename = Messages.DeFill(buffer[51:151])
-            return sessionId, md5, filename
+            return messageHeader, sessionId, md5, filename
         elif messageHeader == "DELF":
             sessionId = buffer[4:19]
             md5 = buffer[19:51]
-            return sessionId, md5
+            return messageHeader, sessionId, md5
         elif messageHeader == "FIND":
             sessionId = buffer[4:19]
             search_string = Messages.DeFill(buffer[19:39])
-            return sessionId, search_string
+            return messageHeader, sessionId, search_string
         elif messageHeader == "RREG":
             sessionId = buffer[4:19]
             md5 = buffer[19:51]
             ip_p2p = Messages.DeFill(buffer[51:66])
             port_p2p = Messages.DeFill(buffer[66:71])
-            return sessionId, md5, ip_p2p, port_p2p
+            return messageHeader, sessionId, md5, ip_p2p, port_p2p
         elif messageHeader == "LOGO":
             sessionId = buffer[4:19]
-            return sessionId
+            return messageHeader, sessionId
 
 
 class Messages:
@@ -183,12 +183,38 @@ class Messages:
         if (len(string) < dim):
             for i in range(dim - len(string)):
                 string += '|'
+                #string = '0' + string
         return string
 
     @staticmethod
     def DeFill(string):
         string.replace('|', '')
+        #for char in string:
+            #if char == '0':
+                #string = string[1:]
+            #else:
+                #break
         return string
+
+    @staticmethod
+    def FillIP(ip):
+        fullIP = ''
+        fields = ip.split('.')
+        for f in fields:
+            f = Messages.Fill(f, 3)
+            fullIP += "%s." %f
+        fullIP = fullIP[:-1]
+        return fullIP
+
+    @staticmethod
+    def DeFillIP(fullIp):
+        ip = ''
+        fields = fullIp.split('.')
+        for f in fields:
+            f = Messages.DeFill(f)
+            ip += "%s." %f
+        ip = ip[:-1]
+        return ip
 
 class File:
     def __init__(self, md5, nome):
