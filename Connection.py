@@ -8,12 +8,12 @@ class MessagesP2P:
 
     def LoginRequest(self, s):
         ip = self.ip
-        ip = Messages.Fill(ip, 15)
+        ip = Messages.FillIP(ip, 15)
         packet = "LOGI%s%s" %(ip, self.port)
         s.send(packet.encode())
 
     def AddFileRequest(self, s, md5, filename):
-        filename = Messages.Fill(filename, 100)
+        filename = Messages.FillPipe(filename, 100)
         packet = "ADDF%s%s%s" %(self.sessionId, md5, filename)
         s.send(packet.encode())
 
@@ -22,7 +22,7 @@ class MessagesP2P:
         s.send(packet.encode())
 
     def FindFileRequest(self, s, search_string):
-        search_string = Messages.Fill(search_string, 20)
+        search_string = Messages.FillPipe(search_string, 20)
         packet = "FIND%s%s" %(self.sessionId, search_string)
         s.send(packet.encode())
 
@@ -35,14 +35,16 @@ class MessagesP2P:
         s.send(packet.encode())
 
     def SendFile(self, s, chunk_id, chunk):
-        len_chunk = len(chunk)
+        len_chunk = str(len(chunk))
+        chunk_id = str(chunk_id)
         chunk_id = Messages.Fill(chunk_id, 6)
         len_chunk = Messages.Fill(len_chunk)
         packet = "ARET%s%s%s" %(chunk_id, len_chunk, chunk)
         s.send(packet.encode())
 
     def RegisterRequest(self, s, md5, ip_p2p, port_p2p):
-        ip_p2p = Messages.Fill(ip_p2p, 15)
+        ip_p2p = Messages.FillIP(ip_p2p, 15)
+        port_p2p = str(port_p2p)
         port_p2p = Messages.Fill(port_p2p, 5)
         packet = "RREG%s%s%s%s" %(self.sessionId, md5, ip_p2p, port_p2p)
         s.send(packet.encode())
@@ -54,7 +56,7 @@ class MessagesP2P:
             self.sessionId = buffer[4:19]
         elif messageHeader == "AADD" or messageHeader == "ADEL" or messageHeader == "ALGO":
             num_copies = Messages.DeFill(buffer[4:7])
-            return num_copies
+            return int(num_copies)
         elif messageHeader == "AFIN":
             result = []
             num_found = Messages.DeFill(buffer[4:7])
@@ -62,31 +64,32 @@ class MessagesP2P:
             for i1 in range (num_found):
                 md5 = buffer[field:field + 32]
                 field += 32
-                filename = Messages.DeFill(buffer[field:field + 100])
+                filename = Messages.DeFillPipe(buffer[field:field + 100])
                 field += 100
                 file = File(md5, filename)
                 num_offering = Messages.DeFill(buffer[field:field + 3])
                 field += 3
                 for i2 in range(num_offering):
-                    ip = Messages.DeFill(buffer[field:field + 15])
+                    ip = Messages.DeFillIp(buffer[field:field + 15])
                     field += 15
                     port = Messages.DeFill(buffer[field:field + 5])
+                    port = int(port)
                     field += 5
                     file.AddOfferingP2P(ip, port)
                 result.append(file)
-            return num_found, result
+            return int(num_found), result
         elif messageHeader == "ARET":
             num_chunk = Messages.DeFill(buffer[4:10])
             len_chunk = Messages.DeFill(buffer[10:15])
             field = int(len_chunk)
             chunk = buffer[15:15 + field]
-            return num_chunk, chunk
+            return int(num_chunk), chunk
         elif messageHeader == "RETR":
             md5 = buffer[4:36]
             return md5
         elif messageHeader == "ARRE":
             num_download = Messages.DeFill(buffer[4:9])
-            return num_download
+            return int(num_download)
 
 class MessagesServer:
     @staticmethod
@@ -96,26 +99,28 @@ class MessagesServer:
 
     @staticmethod
     def AddFileAnswer(s, num_copies):
+        num_copies = str(num_copies)
         num_copies = Messages.Fill(num_copies, 3)
         packet = "AADD%s" %num_copies
         s.send(packet.encode())
 
     @staticmethod
     def RemoveFileAnswer(s, num_copies):
+        num_copies = str(num_copies)
         num_copies = Messages.Fill(num_copies, 3)
         packet = "ADEL%s" %num_copies
         s.send(packet.encode())
 
     @staticmethod
     def FindFileAnswer(s, files):
-        num_result = len(files)
+        num_result = str(len(files))
         num_result = Messages.Fill(num_result, 3)
         packet = "AFIN%s" %num_result
         for f in files:
             md5 = f.md5
             nome = f.nome
-            num_copies = len(f.peers)
-            nome = Messages.Fill(nome, 100)
+            num_copies = str(len(f.peers))
+            nome = Messages.FillPipe(nome, 100)
             num_copies = Messages.Fill(num_copies, 3)
             packet += md5
             packet += nome
@@ -124,12 +129,14 @@ class MessagesServer:
 
     @staticmethod
     def LogoutAnswer(s, num_files):
+        num_files = str(num_files)
         num_files = Messages.Fill(num_files, 3)
         packet = "ALGO%s" %num_files
         s.send(packet.encode())
 
     @staticmethod
     def DownloadAnswer(s, num_download):
+        num_download = str(num_download)
         num_download = Messages.Fill(num_download, 5)
         packet = "ARRE%s" %num_download
         s.send(packet.encode())
@@ -139,13 +146,13 @@ class MessagesServer:
         buffer = Messages.ReadBuffer(s)
         messageHeader = buffer[0:4]
         if messageHeader == "LOGI":
-            ip = Messages.DeFill(buffer[4:19])
+            ip = Messages.DeFillIp(buffer[4:19])
             port = Messages.DeFill(buffer[19:24])
-            return messageHeader, ip, port
+            return messageHeader, ip, int(port)
         elif messageHeader == "ADDF":
             sessionId = buffer[4:19]
             md5 = buffer[19:51]
-            filename = Messages.DeFill(buffer[51:151])
+            filename = Messages.DeFillPipe(buffer[51:151])
             return messageHeader, sessionId, md5, filename
         elif messageHeader == "DELF":
             sessionId = buffer[4:19]
@@ -153,14 +160,14 @@ class MessagesServer:
             return messageHeader, sessionId, md5
         elif messageHeader == "FIND":
             sessionId = buffer[4:19]
-            search_string = Messages.DeFill(buffer[19:39])
+            search_string = Messages.DeFillPipe(buffer[19:39])
             return messageHeader, sessionId, search_string
         elif messageHeader == "RREG":
             sessionId = buffer[4:19]
             md5 = buffer[19:51]
-            ip_p2p = Messages.DeFill(buffer[51:66])
+            ip_p2p = Messages.DeFillIp(buffer[51:66])
             port_p2p = Messages.DeFill(buffer[66:71])
-            return messageHeader, sessionId, md5, ip_p2p, port_p2p
+            return messageHeader, sessionId, md5, ip_p2p, int(port_p2p)
         elif messageHeader == "LOGO":
             sessionId = buffer[4:19]
             return messageHeader, sessionId
@@ -177,23 +184,32 @@ class Messages:
             buffer += part
         return buffer
 
-    #usare 0 (posizionare 0 prima de valore) #convicere classe a fare come me!
     @staticmethod
     def Fill(string, dim):
         if (len(string) < dim):
             for i in range(dim - len(string)):
-                string += '|'
-                #string = '0' + string
+                string = '0' + string
         return string
 
     @staticmethod
     def DeFill(string):
+        for char in string:
+            if char == '0':
+                string = string[1:]
+            else:
+                break
+        return string
+
+    @staticmethod
+    def FillPipe(string, dim):
+        if (len(string) < dim):
+            for i in range(dim - len(string)):
+                string += '|'
+        return string
+
+    @staticmethod
+    def DeFillPipe(string):
         string.replace('|', '')
-        #for char in string:
-            #if char == '0':
-                #string = string[1:]
-            #else:
-                #break
         return string
 
     @staticmethod

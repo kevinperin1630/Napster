@@ -62,7 +62,12 @@ if (len(sys.argv) != 2):
     print("Errore! Numero di argomenti al lancio errato!")
     exit(1)
 else:
-    server_hostname = sys.argv[1]   #risolvere caso in cui si scriva male indirizzo ip
+    hostname = sys.argv[1]
+    if FrontEnd.CheckIp(hostname):
+        server_hostname = hostname
+    else:
+        print("Errore! Indirizzo IP invalido")
+        exit(1)
 
 dir_name = "FileOffered"
 pathOfferDir = "%s\\%s" %(os.path.dirname(os.path.abspath(__file__)), dir_name)
@@ -121,12 +126,12 @@ elif action == 3 and shortMenu:
     Logout()
 
 elif action == 3:
-    md5 = FrontEnd.SelectFile()
+    md5 = FrontEnd.SelectFile(fileList)
     p2p.RemoveFileRequest(s, md5)
     num_copies = p2p.Read(s)
     print("Nella rete esistono %s copie di %s" %(num_copies, md5))
     fileNames = os.listdir(pathOfferDir)
-    if len(fileList) == 0:
+    if len(fileNames) == 0:
         shortMenu = True
 
 elif action == 4 and not shortMenu:
