@@ -1,81 +1,135 @@
 class Menu:
     @staticmethod
     def ShortMenu():
-        # Menù ridotto, nel caso all'inserimento venisse inserito un carattere differente da 1, 2 o 3, il valore di ritorno sarà 0,
-        #    altrimenti sarà l'equivalente in intero del numero inserito
         print("MENU'")
         print("1 - Scarica file")
         print("2 - Carica file")
         print("3 - Logout")
-        print("")
-        scelta = input("Inserire il numero relativo all'operazione desiderata: ")
-        if scelta == "1":
-            return 1
-        elif scelta == "2":
-            return 2
-        elif scelta == "3":
-            return 3
-        else:
-            return 0
-    
+        while True:
+            scelta = input("\nInserire il numero dell'operazione desiderata: ")
+            if scelta == "1":
+                return 1
+            elif scelta == "2":
+                return 2
+            elif scelta == "3":
+                return 3
+            else: 
+                print ("Operazione non riconosciuta, riprovare")
+
     @staticmethod
     def LongMenu():
-        # Menù ridotto, nel caso all'inserimento venisse inserito un carattere differente da 1, 2 o 3, il valore di ritorno sarà 0,
-        #    altrimenti sarà l'equivalente in intero del numero inserito
         print("MENU'")
         print("1 - Scarica file")
         print("2 - Carica file")
         print("3 - Rimuovi file")
         print("4 - Logout")
         print("")
-        scelta = input("Inserire il numero relativo all'operazione desiderata: ")
-        if scelta == "1":
-            return 1
-        elif scelta == "2":
-            return 2
-        elif scelta == "3":
-            return 3
-        elif scelta == "4":
-            return 3
-        else:
-            return 0
-    
+        while True:
+            scelta = input("\nInserire il numero dell'operazione desiderata: ")
+            if scelta == "1":
+                return 1
+            elif scelta == "2":
+                return 2
+            elif scelta == "3":
+                return 3
+            elif scelta == "4":
+                return 3
+            else:
+                print("Operazione non riconosciuta, riprovare")
+
     @staticmethod
     def SearchString():
-        #Metodo che valuta la validità di una stringa di ricerca e la ritorna come valore, in caso non sia valida il valore di ritorno sarà '-'
-        stringa = input("Inserire la stringa di ricerca (max 20 caratteri): ")
-        if len(stringa)>=20:
-            charValidi= True
-            for i in stringa:
-                if (i!='a' or i!='b' or i!='c' or i!='d' or i!='e' or i!='f' 
-                or i!='g' or i!='h' or i!='i' or i!='j' or i!='k' or i!='l' 
-                or i!='m' or i!='n' or i!='o' or i!='p' or i!='q' or i!='r' 
-                or i!='s' or i!='t' or i!='u' or i!='v' or i!='w' or i!='x' 
-                or i!='y' or i!='z' or i!='1' or i!='2' or i!='3' or i!='4'
-                or i!='5' or i!='6' or i!='7' or i!='8' or i!='9'):
-                    charValidi= False
-            if charValidi:
-                return stringa
-            else:return '-'
-        else:return '-'
+        while True:
+            stringa = input("Inserire la stringa di ricerca (max 20 caratteri): ")
+            stringa = stringa.lower()
+            if len(stringa) <= 20:
+                if stringa.isalnum():
+                    return stringa
+                else: 
+                    print("Errore, la stringa contiene caratteri invalidi")
+            else: 
+                print("Errore, la stringa supera i 20 caratteri")
     
     @staticmethod
-    def ShowFiles(*file):
-        i=1
-        print("Lista dei file: ")
-        for f in file:
-            print(i," - ", file.md5, " ", file.nome)
-            i = i+1
-        
-        fileSelezionato = input("Inserire il numero corrispondente al file da selezionare: ")
+    def SearchResult(files):
+        fileIndex = ''
+        peerIndex = ''
+        i  =1
+        print("Risultati: ")
+        for f in files:
+            print("%i) %s %s" %(i, f.md5, f.nome))
+            i += 1
+            k = 1
+            for p in f.peers:
+                print("\t%i) %s %s" %(k, p.ip, p.porta))
+                k += 1
+        while True:
+            fileIndex = input("Selezionare il file da scaricare: ")
+            try:
+                fileIndex = int(fileIndex)
+                if fileIndex <= 0 or fileIndex > len(files):
+                    print("File non riconosciuto, riprovare")
+                else:
+                    fileIndex -= 1
+                    break
+            except:
+                print("Selezione invalida, riprovare")
+        file = files[fileIndex]
+        while True:
+            peerIndex = input("Selezionare il peer da cui scaricare: ")
+            try:
+                peerIndex = int(peerIndex)
+                if peerIndex <= 0 or peerIndex > len(file.peers):
+                    print("Peer non riconosciuto, riprovare")
+                else:
+                    peerIndex -= 1
+                    break
+            except:
+                print("Selezione invalida, riprovare")
+        return file, file.peers[peerIndex].ip, file.peers[peerIndex].port
 
-        charValidi= True
-        for i in fileSelezionato:
-            if (i!='1' or i!='2' or i!='3' or i!='4'
-            or i!='5' or i!='6' or i!='7' or i!='8' or i!='9'):
-                charValidi= False
+    @staticmethod
+    def SelectFile(files):
+        i = 1
+        for f in files:
+            print("%i) %s %s" %(i, f.md5, f.nome))
+            i += 1
+        while True:
+            fileIndex = input("Selezionare il file da rimuovere dalla rete: ")
+            try:
+                fileIndex = int(fileIndex)
+                if fileIndex <= 0 or fileIndex > len(files):
+                    print("File non riconosciuto, riprovare")
+                else:
+                    fileIndex -= 1
+                    break
+            except:
+                print("Selezione invalida, riprovare")
+        return files[fileIndex].md5
 
-        if charValidi:
-            return file[fileSelezionato]
-        else:
-            return "NO" #mettere un valore di ritorno migliore nel caso in cui il tizio inserisca un carattere non valido
+    @staticmethod
+    def CheckIp(ip):
+        parts = ip.split('.')
+        if len(parts) != 4:
+            return False
+        i = 1
+        for p in parts:
+            if len(p) != 3:
+                return False
+            try:
+                firstP = 0
+                p = int(p)
+                if p < 0 or p > 255:
+                    return False
+                elif p == 127 or p == 0 and i == 1:
+                    return False
+                elif p == 255 and i == 4:
+                    return False
+                elif p == 254 and firstP == 169:
+                    return False
+                elif i == 1:
+                    firstP = p
+            except:
+                return False
+            i += 1
+        return True

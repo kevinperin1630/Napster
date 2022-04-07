@@ -52,4 +52,3 @@ elif messageHeader == "RREG":
 elif messageHeader == "LOGO":
     result = logout(parametri[1])
     MessagesServer.LogoutAnswer(s,result)
-
