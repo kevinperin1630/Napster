@@ -1,5 +1,6 @@
 from fileinput import filename
 from hashlib import md5
+from Connection import MessagesP2P
 import psycopg2
 
 class Query:
@@ -13,7 +14,7 @@ class Query:
         righe = cur.rowcount
         cur.close()
         conn.close()
-        if(cur.rowcount == 0):
+        if(righe == 0):
                return False
         return True
 
@@ -28,7 +29,7 @@ class Query:
         cur.close()
         conn.close()
         if(righe == 0):
-               return False
+            return False
         return True
 
     @staticmethod
@@ -63,6 +64,7 @@ class Query:
         cur.close()
         conn.close()
         return n_fileRimossi
+        
     @staticmethod
     def QueryADDF(sessionId, md5, filename):
         try:
@@ -74,6 +76,13 @@ class Query:
             query = "INSERT INTO P2P_File (md5, sessionID, nome) VALUES ('{%s}','{%s}','{%s}')" %(md5,sessionId, filename)
             cur.execute(query)
             conn.commit()
+            query = "SELECT * FROM P2P_File where md5 = %s" %md5
+            cur.execute(query)
+            cur.fetchall()
+            copie = cur.rowcount
+            cur.close()
+            conn.close()
+            return copie
         except (Exception, psycopg2.Error) as error:
             print("Failed to insert record into file table", error)
         finally:
@@ -85,16 +94,16 @@ class Query:
     def QueryDELF(sessionId, md5):
         conn = psycopg2.connect("host=localhost dbname=db")
         cur = conn.cursor()
-        query = "Select * From P2P_File where sessionID = %s and md5 = %s" %(sessionId,md5)
-        cur.execute(query)
-        cur.fetchall()
-        n_fileRimossi = cur.rowcount
         query = "Delete From P2P_File where sessionID = %s and md5 = %s" %(sessionId,md5)
         cur.execute(query)
         conn.commit()
+        query = "Select * From P2P_File where md5 = %s" %md5
+        cur.execute(query)
+        cur.fetchall()
+        n_filePresenti = cur.rowcount
         cur.close()
         conn.close()
-        return n_fileRimossi
+        return n_filePresenti
 
     @staticmethod
     def QueryFIND(sessionId, search_string):
@@ -107,20 +116,24 @@ class Query:
         for md5 in records:
             if (search_string in md5):
                 md5array.append(md5)
-        ipPortaArray=[]
+        peersArray=[]
         filenameArray = []
         for md5 in md5array:
             query = "SELECT ip, porta FROM P2P, P2P_File where P2P.sessionID = %s and P2P_File.sessionID = %s" %(sessionId)
             cur.execute(query)
             ipPorta = cur.fetchall()
-            ipPortaArray.append(ipPorta)
+            peers = []
+            for row in ipPorta:
+                peer = MessagesP2P(row[0],row[1])
+                peers.append(peer)
+            peersArray.append(peers)
             query = "SELECT nome FROM File, P2P_File where File.md5 = %s and P2P_File.md5 = %s" %(md5)
             cur.execute(query)
             filename = cur.fetchone()
             filenameArray.append(filename)
             cur.close()
             conn.close()         
-        return md5array,filenameArray,ipPortaArray
+        return md5array,filenameArray,peersArray
 
     @staticmethod
     def QueryRREG(md5, ip_p2p, port_p2p):
