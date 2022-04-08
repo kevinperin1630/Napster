@@ -1,19 +1,9 @@
-from FrontEnd import Menu
+from FrontEnd import Menu, DisplayEvents
 from Connection import MessagesP2P, File
 import socket
 import sys
 import random
 import os
-import traceback
-
-def FatalError(error):
-    if error == "Il destinatario ha risposto con un messaggio di errore":
-        print(error)
-    else:
-        print("Errore critico sconosciuto: %s", error)
-        print("Informazioni:")
-        traceback.print_exc()
-    exit(1)
 
 def FilesInDir(pathOfferDir):
     fileList = []
@@ -33,7 +23,7 @@ def OfferFiles(fileList):
             num_copies = p2p.Read(s)
             print("Nella rete esistono %s copie di %s" %(num_copies, file.md5))
     except Exception as error:
-        FatalError(error)
+        DisplayEvents.FatalError(error)
 
 def Logout():
     try:
@@ -43,7 +33,7 @@ def Logout():
         print("Logout. %e file rimossi dalla rete" %deleted)
         exit(1)
     except Exception as error:
-        FatalError(error)
+        DisplayEvents.FatalError(error)
 
 def ChildAction(s_offer):
     s_offer.listen()
@@ -66,7 +56,7 @@ def ChildAction(s_offer):
                                 num_chunk += 1
                                 p2p.SendFile(conn, num_chunk, buffer)
             except Exception as error:
-                FatalError(error)
+                DisplayEvents.FatalError(error)
             pid1.kill()
 
 def Download(file_wanted):
@@ -78,7 +68,7 @@ def Download(file_wanted):
                 if len(chunk[0]) < 4096:
                     break
             except Exception as error:
-                FatalError(error)
+                DisplayEvents.FatalError(error)
 
 if (len(sys.argv) != 2):
     print("Errore! Numero di argomenti al lancio errato!")
@@ -122,7 +112,7 @@ while True:
             print("Login effettuato")
             break
     except Exception as error:
-        FatalError(error)
+        DisplayEvents.FatalError(error)
 
 if shortMenu:
     action = Menu.ShortMenu()
@@ -135,18 +125,30 @@ if action == 1:
         p2p.FindFileRequest(s, search_string)
         num_found, fileList = p2p.Read(s)
         if num_found != 0:
-            file_wanted, p2p_hostname, p2p_port = Menu.SearchResult()
+            file_wanted, p2p_hostname, p2p_port = Menu.SearchResult(fileList)
+            nameError = False
+            md5Error = False
+            fileList = FilesInDir()
+            for f in fileList:
+                if file_wanted.nome == f.nome:
+                    nameError = True
+                elif file_wanted.md5 == f.md5:
+                    md5Error = True
+            if not nameError and not md5Error:
+                s_download = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s_download.connect((p2p_hostname, int(p2p_port)))
 
-            s_download = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s_download.connect((p2p_hostname, int(p2p_port)))
-
-            p2p.RetriveFileRequest(s_download, file_wanted.md5)
-            Download(file_wanted)
-            s_download.close()
+                p2p.RetriveFileRequest(s_download, file_wanted.md5)
+                Download(file_wanted)
+                s_download.close()
+            elif nameError:
+                print("Nella cartella %s esiste un file di nome %s" %(dir_name, file_wanted.nome))
+            elif md5Error:
+                print("Nella cartella %s esiste il file desiderato" %dir_name)
         else:
             print("La ricerca non ha prodotto risultati")
     except Exception as error:
-        FatalError(error)
+        DisplayEvents.FatalError(error)
 
 elif action == 2:
     shortMenu = False
@@ -166,7 +168,7 @@ elif action == 3:
         if len(fileNames) == 0:
             shortMenu = True
     except Exception as error:
-        FatalError(error)
+        DisplayEvents.FatalError(error)
 
 elif action == 4 and not shortMenu:
     pid.kill()
