@@ -1,5 +1,3 @@
-from fileinput import filename
-from hashlib import md5
 from Connection import MessagesP2P
 import psycopg2
 
@@ -111,8 +109,8 @@ class Query:
         cur = conn.cursor()
         query = "SELECT distinct md5 FROM P2P_File"
         cur.execute(query)
-        records=cur.fetchall()
-        md5array=[]
+        records = cur.fetchall()
+        md5array = []
         for md5 in records:
             if (search_string in md5):
                 md5array.append(md5)
@@ -133,7 +131,7 @@ class Query:
             filenameArray.append(filename)
             cur.close()
             conn.close()         
-        return md5array,filenameArray,peersArray
+        return md5array, filenameArray, peersArray
 
     @staticmethod
     def QueryRREG(md5, ip_p2p, port_p2p):
@@ -141,13 +139,13 @@ class Query:
         cur = conn.cursor()
         query = "SELECT sessionID FROM P2P where ip_p2p = %s and port_p2p = %s" %(ip_p2p,port_p2p)
         cur.execute(query)
-        sessionID=cur.fetchone()
+        sessionID = cur.fetchone()
         query = "UPDATE P2P_File SET n_download = (n_download+1) where sessionID = %s and md5 = %s" %(sessionID,md5)
         cur.execute(query)
         conn.commit()
         query = "Select n_download FROM P2P_File where sessionID = %s and md5 = %s" %(sessionID,md5)
         cur.execute(query)
-        n_download=cur.fetchone()
+        n_download = cur.fetchone()
         cur.close()
         conn.close()
         return n_download

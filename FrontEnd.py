@@ -1,3 +1,5 @@
+import traceback
+
 class Menu:
     @staticmethod
     def ShortMenu():
@@ -133,3 +135,13 @@ class Menu:
                 return False
             i += 1
         return True
+
+class DisplayEvents:
+    def FatalError(error):
+        if error == "Il destinatario ha risposto con un messaggio di errore":
+            print(error)
+        else:
+            print("Errore critico sconosciuto: %s", error)
+            print("Informazioni:")
+            traceback.print_exc()
+        exit(1)
