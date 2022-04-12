@@ -46,7 +46,12 @@ class Menu:
             stringa = input("Inserire la stringa di ricerca (max 20 caratteri): ")
             stringa = stringa.lower()
             if len(stringa) <= 20:
-                if stringa.isalnum():
+                error = False
+                for c in stringa:
+                    if c in ['<', '>', ':', '"', '/', '\\', '|', '?', '*']:
+                        error = True
+                        break
+                if not error:
                     return stringa
                 else: 
                     print("Errore, la stringa contiene caratteri invalidi")

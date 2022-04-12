@@ -6,7 +6,7 @@ class Query:
     def SessionIDpresente(sessionID):
         conn = psycopg2.connect("host=localhost dbname=db")
         cur = conn.cursor()
-        query = "SELECT * FROM P2P where sessionID = %s" %sessionID
+        query = "SELECT * FROM P2P where sessionID = '%s'" %sessionID
         cur.execute(query)
         cur.fetchall()
         righe = cur.rowcount
@@ -20,7 +20,7 @@ class Query:
     def PeerRegistrato(ip, porta):
         conn = psycopg2.connect("host=localhost dbname=db")
         cur = conn.cursor()
-        query = "SELECT * FROM P2P where ip = %s and porta = %s" %(ip, porta)
+        query = "SELECT * FROM P2P where ip = '%s' and porta = '%s'" %(ip, porta)
         cur.execute(query)
         cur.fetchall()
         righe = cur.rowcount
@@ -35,7 +35,7 @@ class Query:
         try:
             conn = psycopg2.connect("host=localhost dbname=db")
             cur = conn.cursor()
-            query = "INSERT INTO P2P (sessionID, ip, porta) VALUES ('{%s}','{%s}','{%s}')" %(sessionID,ip,porta)
+            query = "INSERT INTO P2P (sessionID, ip, porta) VALUES ('{%s}','{%s}','{%s}')" %(sessionID, ip, porta)
             cur.execute(query)
             conn.commit()
         except (Exception, psycopg2.Error) as error:
@@ -49,14 +49,15 @@ class Query:
     def EffettuaLogout(sessionID):
         conn = psycopg2.connect("host=localhost dbname=db")
         cur = conn.cursor()
-        query = "SELECT * FROM P2P_File where sessionID = %s" %sessionID
+        #query = "SELECT * FROM P2P_File where sessionID = %s" %sessionID
+        #cur.execute(query)
+        #cur.fetchall()
+        #n_fileRimossi = cur.rowcount
+        query = "Delete From P2P_File where sessionID = '%s'" %sessionID
         cur.execute(query)
-        cur.fetchall()
         n_fileRimossi = cur.rowcount
-        query = "Delete From P2P_File where sessionID = %s" %sessionID
-        cur.execute(query)
         conn.commit()
-        query = "Delete From P2P where sessionID = %s" %sessionID
+        query = "Delete From P2P where sessionID = '%s'" %sessionID
         cur.execute(query)
         conn.commit()
         cur.close()
@@ -71,10 +72,10 @@ class Query:
             query = "INSERT INTO File (md5) VALUES ('{%s}')" %md5
             cur.execute(query)
             conn.commit()
-            query = "INSERT INTO P2P_File (md5, sessionID, nome) VALUES ('{%s}','{%s}','{%s}')" %(md5,sessionId, filename)
+            query = "INSERT INTO P2P_File (md5, sessionID, nome) VALUES ('{%s}','{%s}','{%s}')" %(md5, sessionId, filename)
             cur.execute(query)
             conn.commit()
-            query = "SELECT * FROM P2P_File where md5 = %s" %md5
+            query = "SELECT * FROM P2P_File where md5 = '%s'" %md5
             cur.execute(query)
             cur.fetchall()
             copie = cur.rowcount
@@ -92,60 +93,74 @@ class Query:
     def QueryDELF(sessionId, md5):
         conn = psycopg2.connect("host=localhost dbname=db")
         cur = conn.cursor()
-        query = "Delete From P2P_File where sessionID = %s and md5 = %s" %(sessionId,md5)
+        query = "Delete From P2P_File where sessionID = '%s' and md5 = '%s'" %(sessionId, md5)
         cur.execute(query)
-        conn.commit()
-        query = "Select * From P2P_File where md5 = %s" %md5
-        cur.execute(query)
-        cur.fetchall()
-        n_filePresenti = cur.rowcount
+        conn.commit()  
         cur.close()
         conn.close()
+        n_filePresenti = Query.ControlloFileOfferto(md5)
+        if(n_filePresenti == 0):
+            conn = psycopg2.connect("host=localhost dbname=db")
+            cur = conn.cursor()
+            query = "Delete From File where md5 = '%s'" %md5
+            cur.execute(query)
+            conn.commit()  
+            cur.close()
+            conn.close()
         return n_filePresenti
 
     @staticmethod
     def QueryFIND(sessionId, search_string):
         conn = psycopg2.connect("host=localhost dbname=db")
         cur = conn.cursor()
-        query = "SELECT distinct md5 FROM P2P_File"
+        query = "SELECT distinct md5 FROM P2P_File where nome LIKE '%(%s)%'" %search_string
         cur.execute(query)
-        records = cur.fetchall()
-        md5array = []
-        for md5 in records:
-            if (search_string in md5):
-                md5array.append(md5)
-        peersArray=[]
-        filenameArray = []
-        for md5 in md5array:
-            query = "SELECT ip, porta FROM P2P, P2P_File where P2P.sessionID = %s and P2P_File.sessionID = %s" %(sessionId)
+        md5Array = cur.fetchall()
+        peersLList = []
+        filenameLList = []
+        for md5 in md5Array:
+            query = "SELECT ip, porta FROM P2P JOIN P2P_File ON P2P_File.sessionID = P2P.sessionID and P2P_File.md5 = '%s' and not P2P.sessionID = '%s' " %(md5, sessionId)
             cur.execute(query)
             ipPorta = cur.fetchall()
             peers = []
             for row in ipPorta:
-                peer = MessagesP2P(row[0],row[1])
+                peer = MessagesP2P(row[0], row[1])
                 peers.append(peer)
-            peersArray.append(peers)
-            query = "SELECT nome FROM File, P2P_File where File.md5 = %s and P2P_File.md5 = %s" %(md5)
+            peersLList.append(peers)
+            query = "SELECT distinct nome FROM P2P_File where P2P_File.md5 = '%s'" %(md5)
             cur.execute(query)
             filename = cur.fetchone()
-            filenameArray.append(filename)
+            filenameLList.append(filename)
             cur.close()
             conn.close()         
-        return md5array, filenameArray, peersArray
+        return md5Array, filenameLList, peersLList
 
     @staticmethod
     def QueryRREG(md5, ip_p2p, port_p2p):
         conn = psycopg2.connect("host=localhost dbname=db")
         cur = conn.cursor()
-        query = "SELECT sessionID FROM P2P where ip_p2p = %s and port_p2p = %s" %(ip_p2p,port_p2p)
+        query = "SELECT sessionID FROM P2P where ip_p2p = '%s' and port_p2p = '%s'" %(ip_p2p, port_p2p)
         cur.execute(query)
         sessionID = cur.fetchone()
-        query = "UPDATE P2P_File SET n_download = (n_download+1) where sessionID = %s and md5 = %s" %(sessionID,md5)
+        query = "UPDATE P2P_File SET n_download = n_download + 1 where sessionID = '%s' and md5 = '%s'" %(sessionID, md5)
         cur.execute(query)
         conn.commit()
-        query = "Select n_download FROM P2P_File where sessionID = %s and md5 = %s" %(sessionID,md5)
+        query = "Select n_download FROM P2P_File where sessionID = '%s' and md5 = '%s'" %(sessionID, md5)
         cur.execute(query)
         n_download = cur.fetchone()
         cur.close()
         conn.close()
         return n_download
+
+    
+    @staticmethod
+    def ControlloFileOfferto(md5):
+        conn = psycopg2.connect("host=localhost dbname=db")
+        cur = conn.cursor()
+        query = "Select * From P2P_File where md5 = '%s'" %md5
+        cur.execute(query)
+        cur.fetchall()
+        n_copieRimaste = cur.rowcount
+        cur.close()
+        conn.close()
+        return n_copieRimaste
