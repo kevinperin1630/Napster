@@ -6,52 +6,63 @@ class MessagesP2P:
         self.port = port
         self.sessionId = "0000000000000000"
 
-    def LoginRequest(self, s):
+    def LoginRequest(self, s, log):
         ip = self.ip
         ip = Messages.FillIP(ip, 15)
         packet = "LOGI%s%s" %(ip, self.port)
         s.send(packet.encode())
+        log.AddLog("Invio richiesta di login (LOGI)")
 
-    def AddFileRequest(self, s, md5, filename):
+    def AddFileRequest(self, s, md5, filename, log):
         filename = Messages.Fill(filename, 100, '|')
         packet = "ADDF%s%s%s" %(self.sessionId, md5, filename)
         s.send(packet.encode())
+        log.AddLog("Invio richiesta di aggiunta file (ADDF)")
 
-    def RemoveFileRequest(self, s, md5):
+    def RemoveFileRequest(self, s, md5, log):
         packet = "DELF%s%s" %(self.sessionId, md5)
         s.send(packet.encode())
+        log.AddLog("Invio richiesta di rimozione file (DELF)")
 
-    def FindFileRequest(self, s, search_string):
+    def FindFileRequest(self, s, search_string, log):
         search_string = Messages.Fill(search_string, 20, '|')
         packet = "FIND%s%s" %(self.sessionId, search_string)
         s.send(packet.encode())
+        log.AddLog("Invio stringa di ricerca (FIND)")
 
-    def RetriveFileRequest(self, s, md5):
+    def RetriveFileRequest(self, s, md5, log):
         packet = "RETR%s" %md5
         s.send(packet.encode())
+        log.AddLog("Invio richiesta di download (RETR)")
 
-    def LogoutRequest(self, s):
+    def LogoutRequest(self, s, log):
         packet = "LOGO%s" %self.sessionId
         s.send(packet.encode())
+        log.AddLog("Invio richiesta di logout (LOGO)")
 
-    def SendFile(self, s, chunk_id, chunk):
-        len_chunk = str(len(chunk))
-        chunk_id = str(chunk_id)
-        chunk_id = Messages.Fill(chunk_id, 6, '0')
-        len_chunk = Messages.Fill(len_chunk, '0')
-        packet = "ARET%s%s%s" %(chunk_id, len_chunk, chunk)
+    def SendFile(self, s, chunk_num, data, log):
+        chunk_num = str(chunk_num)
+        chunk_num = Messages.Fill(chunk_num, 6, '0')
+        packet = "ARET%s" %chunk_num
+        for chunk in data:
+            len_chunk = str(len(chunk))
+            len_chunk = Messages.Fill(len_chunk, 5, '0')
+            packet += "%s%s" %(len_chunk, chunk)
         s.send(packet.encode())
+        log.AddLog("Invio dati del file (ARET)")
 
-    def RegisterRequest(self, s, md5, ip_p2p, port_p2p):
+    def RegisterRequest(self, s, md5, ip_p2p, port_p2p, log):
         ip_p2p = Messages.FillIP(ip_p2p, 15)
         port_p2p = str(port_p2p)
         port_p2p = Messages.Fill(port_p2p, 5, '0')
         packet = "RREG%s%s%s%s" %(self.sessionId, md5, ip_p2p, port_p2p)
         s.send(packet.encode())
+        log.AddLog("Invio dati per registrazione download avvenuto (RREG)")
 
-    def Read(self, s):
+    def Read(self, s, log):
         buffer = Messages.ReadBuffer(s)
         messageHeader = buffer[0:4]
+        log.AddLog("Ricezione pacchetto %s" %messageHeader)
         if messageHeader == "ALGI":
             self.sessionId = buffer[4:19]
         elif messageHeader == "AADD" or messageHeader == "ADEL" or messageHeader == "ALGO":
@@ -79,11 +90,16 @@ class MessagesP2P:
                 result.append(file)
             return int(num_found), result
         elif messageHeader == "ARET":
-            num_chunk = Messages.DeFill(buffer[4:10], '0')
-            len_chunk = Messages.DeFill(buffer[10:15], '0')
-            field = int(len_chunk)
-            chunk = buffer[15:15 + field]
-            return int(num_chunk), chunk
+            num_chunk = int(Messages.DeFill(buffer[4:10], '0'))
+            field = 10
+            data = []
+            for i in range(num_chunk):
+                len_chunk = int(Messages.DeFill(buffer[field:field+5], '0'))
+                field += 5
+                chunk = Messages.DeFill(buffer[field:field+len_chunk], '0')
+                data.append(chunk)
+                field += len_chunk
+            return num_chunk, data
         elif messageHeader == "RETR":
             md5 = buffer[4:36]
             return md5
@@ -94,29 +110,33 @@ class MessagesP2P:
             raise Exception("Il destinatario ha risposto con un messaggio di errore")
         else:
             Messages.SendError(s)
+            log.AddLog("Pacchetto non riconosciuto. Invio risposta: messaggio di errore (ERRO)")
 
 class MessagesServer:
     @staticmethod
-    def LoginAnswer(s, sessionId):
+    def LoginAnswer(s, sessionId, log):
         packet = "ALGI%s" %sessionId
         s.send(packet.encode())
+        log.AddLog("Invio risposta a login (ALGI)")
 
     @staticmethod
-    def AddFileAnswer(s, num_copies):
+    def AddFileAnswer(s, num_copies, log):
         num_copies = str(num_copies)
         num_copies = Messages.Fill(num_copies, 3, '0')
         packet = "AADD%s" %num_copies
         s.send(packet.encode())
+        log.AddLog("Invio risposta ad aggiunta file (AADD)")
 
     @staticmethod
-    def RemoveFileAnswer(s, num_copies):
+    def RemoveFileAnswer(s, num_copies, log):
         num_copies = str(num_copies)
         num_copies = Messages.Fill(num_copies, 3, '0')
         packet = "ADEL%s" %num_copies
         s.send(packet.encode())
+        log.AddLog("Invio risposta a rimozione file (ADEL)")
 
     @staticmethod
-    def FindFileAnswer(s, files):
+    def FindFileAnswer(s, files, log):
         num_result = str(len(files))
         num_result = Messages.Fill(num_result, 3, '0')
         packet = "AFIN%s" %num_result
@@ -130,25 +150,29 @@ class MessagesServer:
             packet += nome
             packet += num_copies
         s.send(packet.encode())
+        log.AddLog("Invio risultati ricerca (AFIN)")
 
     @staticmethod
-    def LogoutAnswer(s, num_files):
+    def LogoutAnswer(s, num_files, log):
         num_files = str(num_files)
         num_files = Messages.Fill(num_files, 3, '0')
         packet = "ALGO%s" %num_files
         s.send(packet.encode())
+        log.AddLog("Invio risposta a logout (ALGO)")
 
     @staticmethod
-    def DownloadAnswer(s, num_download):
+    def DownloadAnswer(s, num_download, log):
         num_download = str(num_download)
         num_download = Messages.Fill(num_download, 5, '0')
         packet = "ARRE%s" %num_download
         s.send(packet.encode())
+        log.AddLog("Invio statistica download (ARRE)")
 
     @staticmethod
-    def Read(s):
+    def Read(s, log):
         buffer = Messages.ReadBuffer(s)
         messageHeader = buffer[0:4]
+        log.AddLog("Ricezione pacchetto %s" %messageHeader)
         if messageHeader == "LOGI":
             ip = Messages.DeFillIP(buffer[4:19])
             port = Messages.DeFill(buffer[19:24], '0')
@@ -179,6 +203,7 @@ class MessagesServer:
             raise Exception("Il destinatario ha risposto con un messaggio di errore")
         else:
             Messages.SendError(s)
+            log.AddLog("Pacchetto non riconosciuto. Invio risposta: messaggio di errore (ERRO)")
 
 
 class Messages:
