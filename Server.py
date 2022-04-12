@@ -55,9 +55,11 @@ while True:
                 sessionId = parametri[1]
                 search_string = parametri[2]
                 result = Query.QueryFIND(sessionId, search_string)
-                files =[]
-                for i in range(0, len(result[0])):
-                    f = File(result[0][i],result[1][i],result[2][i])
+                files = []
+                for i in range(len(result[0])):
+                    f = File(result[0][i], result[1][i][0])
+                    for peer in result[2][i]:
+                        f.AddOfferingP2P(peer.ip, peer.port)
                     files.append(f)
                 MessagesServer.FindFileAnswer(s, files, log)
             elif messageHeader == "RREG":
