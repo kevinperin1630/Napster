@@ -1,3 +1,4 @@
+import datetime
 import traceback
 
 class Menu:
@@ -136,12 +137,26 @@ class Menu:
             i += 1
         return True
 
+class LogCompiler:
+    def __init__(self, path_dir):
+        self.dir = "%s\\%s" %(path_dir, "Log")
+        self.name = datetime.datetime.now().strftime("%d-%m-%Y.%H%M%S")
+
+    def AddLog(self, info):
+        filePath = "%s\\%s" %(self.dir, self.name)
+        log = "[%s]: %s" %(datetime.datetime.now().strftime("%H:%M:%S"), info)
+        with open(filePath, "a") as f:
+            f.write(log)
+
 class DisplayEvents:
-    def FatalError(error):
-        if error == "Il destinatario ha risposto con un messaggio di errore":
+    @staticmethod
+    def FatalError(error, log):
+        if error == "Il destinatario ha risposto con un messaggio di errore.":
             print(error)
+            log.AddLog(error)
         else:
             print("Errore critico sconosciuto: %s", error)
             print("Informazioni:")
             traceback.print_exc()
+            log.AddLog("Errore critico sconosciuto: %s", error)
         exit(1)
