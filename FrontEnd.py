@@ -4,7 +4,7 @@ import traceback
 class Menu:
     @staticmethod
     def ShortMenu():
-        print("MENU'")
+        print("\nMENU'")
         print("1 - Scarica file")
         print("2 - Carica file")
         print("3 - Logout")
@@ -21,14 +21,14 @@ class Menu:
 
     @staticmethod
     def LongMenu():
-        print("MENU'")
+        print("\nMENU'")
         print("1 - Scarica file")
         print("2 - Carica file")
         print("3 - Rimuovi file")
         print("4 - Logout")
-        print("")
         while True:
             scelta = input("\nInserire il numero dell'operazione desiderata: ")
+            print("\n")
             if scelta == "1":
                 return 1
             elif scelta == "2":
@@ -36,7 +36,7 @@ class Menu:
             elif scelta == "3":
                 return 3
             elif scelta == "4":
-                return 3
+                return 4
             else:
                 print("Operazione non riconosciuta, riprovare")
 
@@ -63,9 +63,9 @@ class Menu:
         fileIndex = ''
         peerIndex = ''
         i  =1
-        print("Risultati: ")
+        print("\nRisultati: ")
         for f in files:
-            print("%i) %s %s" %(i, f.md5, f.nome))
+            print("%i) %s %s" %(i, f.md5, f.name))
             i += 1
             k = 1
             for p in f.peers:
@@ -100,10 +100,10 @@ class Menu:
     def SelectFile(files):
         i = 1
         for f in files:
-            print("%i) %s %s" %(i, f.md5, f.nome))
+            print("%i) %s %s" %(i, f.md5, f.name))
             i += 1
         while True:
-            fileIndex = input("Selezionare il file da rimuovere dalla rete: ")
+            fileIndex = input("\nSelezionare il file da rimuovere dalla rete: ")
             try:
                 fileIndex = int(fileIndex)
                 if fileIndex <= 0 or fileIndex > len(files):
@@ -122,7 +122,7 @@ class Menu:
             return False
         i = 1
         for p in parts:
-            if len(p) != 3:
+            if len(p) > 3:
                 return False
             try:
                 firstP = 0
@@ -144,13 +144,13 @@ class Menu:
 
 class LogCompiler:
     def __init__(self, path_dir):
-        self.dir = "%s\\%s" %(path_dir, "Log")
-        self.name = datetime.datetime.now().strftime("%d-%m-%Y.%H%M%S")
+        self.dir = "%s/%s" %(path_dir, "Log")
+        self.name = "%s.txt" %datetime.datetime.now().strftime("%d-%m-%Y.%H%M%S")
 
     def AddLog(self, info):
-        filePath = "%s\\%s" %(self.dir, self.name)
-        log = "[%s]: %s" %(datetime.datetime.now().strftime("%H:%M:%S"), info)
-        with open(filePath, "a") as f:
+        filePath = "%s/%s" %(self.dir, self.name)
+        log = "[%s] %s" %(datetime.datetime.now().strftime("%H:%M:%S"), info)
+        with open(filePath, "a+") as f:
             f.write(log)
 
 class DisplayEvents:
@@ -160,8 +160,8 @@ class DisplayEvents:
             print(error)
             log.AddLog(error)
         else:
-            print("Errore critico sconosciuto: %s", error)
+            print("Errore critico sconosciuto: %s" %error)
             print("Informazioni:")
             traceback.print_exc()
-            log.AddLog("Errore critico sconosciuto: %s", error)
+            log.AddLog("Errore critico sconosciuto: %s" %error)
         exit(1)
