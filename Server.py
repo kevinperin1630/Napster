@@ -35,43 +35,49 @@ while True:
     pid = os.fork()
     if pid == 0:
         try:
-            parametri = MessagesServer.Read(conn, log)
-            messageHeader = parametri[0]
-            if messageHeader == "LOGI":
-                result = Login(parametri[1], parametri[2], log)
-                MessagesServer.LoginAnswer(conn, result, log)
-            elif messageHeader == "ADDF":
-                sessionId = parametri[1]
-                md5 = parametri[2]
-                filename = parametri[3]
-                result = Query.QueryADDF(sessionId, md5, filename)
-                MessagesServer.AddFileAnswer(conn, result, log)
-            elif messageHeader == "DELF":
-                sessionId = parametri[1]
-                md5 = parametri[2]
-                result = Query.QueryDELF(parametri[1], parametri[2])
-                MessagesServer.RemoveFileAnswer(conn, result, log)
-            elif messageHeader == "FIND":
-                sessionId = parametri[1]
-                search_string = parametri[2]
-                result = Query.QueryFIND(sessionId, search_string)
-                files = []
-                for i in range(len(result[0])):
-                    f = File(result[0][i], result[1][i][0])
-                    for peer in result[2][i]:
-                        f.AddOfferingP2P(peer.ip, peer.port)
-                    files.append(f)
-                MessagesServer.FindFileAnswer(conn, files, log)
-            elif messageHeader == "RREG":
-                result = Query.QueryRREG(parametri[2], parametri[3], parametri[4])
-                MessagesServer.DownloadAnswer(conn, result, log)
-            elif messageHeader == "LOGO":
-                sessionID = parametri[1]
-                n_fileRimossi = Query.EffettuaLogout(sessionID)
-                MessagesServer.LogoutAnswer(conn, n_fileRimossi, log)
-            conn.close()
-            log.AddLog("Connessione chiusa.\n")
+            while True:
+                parametri = MessagesServer.Read(conn, log)
+                messageHeader = parametri[0]
+                if messageHeader == "LOGI":
+                    result = Login(parametri[1], parametri[2], log)
+                    MessagesServer.LoginAnswer(conn, result, log)
+                elif messageHeader == "ADDF":
+                    sessionId = parametri[1]
+                    md5 = parametri[2]
+                    filename = parametri[3]
+                    result = Query.QueryADDF(sessionId, md5, filename)
+                    MessagesServer.AddFileAnswer(conn, result, log)
+                elif messageHeader == "DELF":
+                    sessionId = parametri[1]
+                    md5 = parametri[2]
+                    result = Query.QueryDELF(parametri[1], parametri[2])
+                    MessagesServer.RemoveFileAnswer(conn, result, log)
+                elif messageHeader == "FIND":
+                    sessionId = parametri[1]
+                    search_string = parametri[2]
+                    result = Query.QueryFIND(sessionId, search_string)
+                    files = []
+                    for i in range(len(result[0])):
+                        f = File(result[0][i][0], result[1][i][0])
+                        for peer in result[2][i]:
+                            f.AddOfferingP2P(peer.ip, peer.port)
+                        if len(f.peers) != 0:
+                            files.append(f)
+                    MessagesServer.FindFileAnswer(conn, files, log)
+                elif messageHeader == "RREG":
+                    result = Query.QueryRREG(parametri[2], parametri[3], parametri[4])
+                    MessagesServer.DownloadAnswer(conn, result, log)
+                elif messageHeader == "LOGO":
+                    sessionID = parametri[1]
+                    n_fileRimossi = Query.EffettuaLogout(sessionID)
+                    MessagesServer.LogoutAnswer(conn, n_fileRimossi, log)
+                    conn.close()
+                    log.AddLog("Connessione chiusa.\n")
+                    os._exit(1)
         except Exception as error:
-            DisplayEvents.FatalError(error, log)
-        finally:
-            os._exit(1)
+            if "Ricevuto spazzatura" in str(error):
+                conn.close()
+                log.AddLog("Connessione chiusa.\n")
+                os._exit(1)
+            else:          
+                DisplayEvents.FatalError(error, log)
