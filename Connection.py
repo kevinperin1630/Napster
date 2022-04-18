@@ -43,12 +43,13 @@ class MessagesP2P:
     def SendFile(self, s, chunk_num, data, log):
         chunk_num = str(chunk_num)
         chunk_num = Messages.Fill(chunk_num, 6, '0')
-        packet = "ARET%s" %chunk_num
+        packet = ("ARET%s" %chunk_num).encode()
         for chunk in data:
             len_chunk = str(len(chunk))
-            len_chunk = Messages.Fill(len_chunk, 5, '0')
-            packet += "%s%s" %(len_chunk, chunk)
-        s.send(packet.encode())
+            len_chunk = Messages.Fill(len_chunk, 5, '0').encode()
+            packet += len_chunk
+            packet += chunk
+        s.sendall(packet)
         log.AddLog("Invio dati del file (ARET)\n")
 
     def RegisterRequest(self, s, md5, ip_p2p, port_p2p, log):
@@ -69,18 +70,15 @@ class MessagesP2P:
             return int(num_copies)
         elif messageHeader == "AFIN":
             result = []
-            num_found = Messages.DeFill(s.recv(3).decode(), '0')
-            field = 7
+            num_found = int(Messages.DeFill(s.recv(3).decode(), '0'))
             for i1 in range (num_found):
                 md5 = s.recv(32).decode()
                 filename = Messages.DeFill(s.recv(100).decode(), '|')
                 file = File(md5, filename)
-                num_offering = Messages.DeFill(s.recv(3).decode(), '0')
+                num_offering = int(Messages.DeFill(s.recv(3).decode(), '0'))
                 for i2 in range(num_offering):
                     ip = Messages.DeFillIP(s.recv(15).decode())
-                    field += 15
-                    port = Messages.DeFill(s.recv(5).decode(), '0')
-                    port = int(port)
+                    port = int(Messages.DeFill(s.recv(5).decode(), '0'))
                     file.AddOfferingP2P(ip, port)
                 result.append(file)
             return int(num_found), result
@@ -89,7 +87,7 @@ class MessagesP2P:
             data = []
             for i in range(num_chunk):
                 len_chunk = int(Messages.DeFill(s.recv(5).decode(), '0'))
-                chunk = Messages.DeFill(s.recv(len_chunk).decode(), '0')
+                chunk = s.recv(len_chunk)
                 data.append(chunk)
             return num_chunk, data
         elif messageHeader == "RETR":
@@ -103,6 +101,7 @@ class MessagesP2P:
         else:
             Messages.SendError(s)
             log.AddLog("Pacchetto non riconosciuto. Invio risposta: messaggio di errore (ERRO)\n")
+            raise Exception("Ricevuto spazzatura")
 
 class MessagesServer:
     @staticmethod
@@ -141,6 +140,13 @@ class MessagesServer:
             packet += md5
             packet += nome
             packet += num_copies
+            for peer in f.peers:
+                ip = peer.ip
+                port = peer.port
+                ip = Messages.FillIP(ip)
+                port = Messages.Fill(port, 5, '0')
+                packet += ip
+                packet += port
         s.send(packet.encode())
         log.AddLog("Invio risultati ricerca (AFIN)\n")
 
@@ -195,6 +201,7 @@ class MessagesServer:
         else:
             Messages.SendError(s)
             log.AddLog("Pacchetto non riconosciuto. Invio risposta: messaggio di errore (ERRO)\n")
+            raise Exception("Ricevuto spazzatura")
 
 
 class Messages:

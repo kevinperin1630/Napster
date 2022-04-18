@@ -25,7 +25,10 @@ def OfferFiles(s, fileList, log):
             log.AddLog("Offerto file %s (%s)\n" %(file.name, file.md5))
             log.AddLog("Nella rete esistono %s copie di %s\n" %(num_copies, file.name))
     except Exception as error:
-        DisplayEvents.FatalError(error, log)
+        if "Ricevuto spazzatura" in str(error):
+            print("\nAttenzione! Il server ha risposto in maniera inaspettata.\n")
+        else:
+            DisplayEvents.FatalError(error, log)
 
 def Logout(s, log):
     try:
@@ -36,7 +39,10 @@ def Logout(s, log):
         log.AddLog("Logout. %s file rimossi dalla rete.\n" %deleted)
         exit(1)
     except Exception as error:
-        DisplayEvents.FatalError(error, log)
+        if "Ricevuto spazzatura" in str(error):
+            print("\nAttenzione! Il server ha risposto in maniera inaspettata.\n")
+        else:
+            DisplayEvents.FatalError(error, log)
 
 def ChildAction(s_offer, log):
     s_offer.listen(10)
@@ -61,21 +67,27 @@ def ChildAction(s_offer, log):
                                     break
                                 data.append(buffer)
                                 num_chunk += 1
-                            p2p.SendFile(conn, num_chunk, buffer, log)
+                            p2p.SendFile(conn, num_chunk, data, log)
             except Exception as error:
-                DisplayEvents.FatalError(error, log)
+                if "Ricevuto spazzatura" in str(error):
+                    print("\nAttenzione! Il peer richiedente ha risposto in maniera inaspettata.\n")
+                else:
+                    DisplayEvents.FatalError(error, log)
             finally:
                 os._exit(1)
 
-def Download(file_wanted, s_download, log):
-    with open(file_wanted.name, 'a') as f:
+def Download(filePath, s_download, log):
+    with open(filePath, 'ab') as f:
         try:
             num_chunk, data = p2p.Read(s_download, log)
             for i in range(num_chunk):
                 f.write(data[i])
             log.AddLog("File scaricato.\n")
         except Exception as error:
-            DisplayEvents.FatalError(error, log)
+            if "Ricevuto spazzatura" in str(error):
+                print("\nAttenzione! Il peer offerente ha risposto in maniera inaspettata.\n")
+            else:
+                DisplayEvents.FatalError(error, log)
 
 currentPath = os.path.dirname(os.path.abspath(__file__))
 log = LogCompiler(currentPath)
@@ -103,19 +115,23 @@ server_port = 80
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((server_hostname, int(server_port)))
-
-p2p_ip = s.getsockname()[0]
-p2p_port = random.randint(50000, 52000)
-
-p2p = MessagesP2P(p2p_ip, p2p_port)
-log.AddLog("Peer -> Ip %s ; porta %s\n" %(p2p_ip, p2p_port))
-
 log.AddLog("Connessione su socket server.\n")
 
-s_offer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s_offer.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s_offer.bind((p2p.ip, p2p.port))
-log.AddLog("Bind su socket download.\n")
+while True:
+    try:
+        p2p_ip = s.getsockname()[0]
+        p2p_port = random.randint(50000, 52000)
+
+        p2p = MessagesP2P(p2p_ip, p2p_port)
+        log.AddLog("Peer -> Ip %s ; porta %s\n" %(p2p_ip, p2p_port))
+
+        s_offer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s_offer.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s_offer.bind((p2p.ip, p2p.port))
+        log.AddLog("Bind su socket download.\n")
+        break
+    except:
+        log.AddLog("Errore! Porta %s occupata." %p2p_port)
 
 pid = os.fork()
 if pid == 0:
@@ -136,7 +152,10 @@ while True:
             log.AddLog("SessionID: %s. Login effettuato.\n" %p2p.sessionId)
             break
     except Exception as error:
-        DisplayEvents.FatalError(error, log)
+        if "Ricevuto spazzatura" in str(error):
+            print("\nAttenzione! Il server ha risposto in maniera inaspettata.\n")
+        else:
+            DisplayEvents.FatalError(error, log)
 
 while True:
     if shortMenu:
@@ -151,12 +170,12 @@ while True:
             search_string = Menu.SearchString()
             log.AddLog("Stringa di ricerca: %s\n" %search_string)
             p2p.FindFileRequest(s, search_string, log)
-            num_found, fileList = p2p.Read(s, log)
+            num_found, fileFound = p2p.Read(s, log)
             if num_found != 0:
-                file_wanted, p2p_hostname, p2p_port = Menu.SearchResult(fileList)
+                file_wanted, p2p_hostname, p2p_port = Menu.SearchResult(fileFound)
                 nameError = False
                 md5Error = False
-                fileList = FilesInDir()
+                fileList = FilesInDir(pathOfferDir)
                 for f in fileList:
                     if file_wanted.name == f.name:
                         nameError = True
@@ -168,8 +187,14 @@ while True:
                     log.AddLog("Connessione su socket peer offerente.\n")
 
                     p2p.RetriveFileRequest(s_download, file_wanted.md5, log)
-                    Download(file_wanted, s_download, log)
+                    filePath = "%s/%s" %(pathOfferDir, file_wanted.name)
+                    Download(filePath, s_download, log)
                     s_download.close()
+
+                    p2p.RegisterRequest(s, file_wanted.md5, p2p_hostname, p2p_port, log)
+                    num_downloaded = p2p.Read(s, log)
+                    print("\nFile %s (%s) scaricato %s volte dal peer scelto.\n" %(file_wanted.name, file_wanted.md5, num_downloaded))
+                    log.AddLog("File %s (%s) scaricato %s volte da %s %s" %(file_wanted.name, file_wanted.md5, num_downloaded, p2p_hostname, p2p_port))
                 elif nameError:
                     print("Nella cartella %s esiste un file di nome %s" %(dir_name, file_wanted.name))
                     log.AddLog("Errore! Nome %s esiste in %s.\n" %(file_wanted.name, dir_name))
@@ -180,7 +205,10 @@ while True:
                 print("La ricerca non ha prodotto risultati.")
                 log.AddLog("La ricerca non ha prodotto risultati.\n")
         except Exception as error:
-            DisplayEvents.FatalError(error, log)
+            if "Ricevuto spazzatura" in str(error):
+                print("\nAttenzione! Il server ha risposto in maniera inaspettata.\n")
+            else:
+                DisplayEvents.FatalError(error, log)
 
     elif action == 2:
         shortMenu = False
@@ -206,7 +234,10 @@ while True:
                 shortMenu = True
                 log.AddLog("Questo peer non offre alcun file.\n")
         except Exception as error:
-            DisplayEvents.FatalError(error, log)
+            if "Ricevuto spazzatura" in str(error):
+                print("\nAttenzione! Il server ha risposto in maniera inaspettata.\n")
+            else:
+                DisplayEvents.FatalError(error, log)
 
     elif action == 4 and not shortMenu:
         os.kill(pid, 9)

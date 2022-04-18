@@ -62,14 +62,14 @@ class Menu:
     def SearchResult(files):
         fileIndex = ''
         peerIndex = ''
-        i  =1
+        i = 1
         print("\nRisultati: ")
         for f in files:
             print("%i) %s %s" %(i, f.md5, f.name))
             i += 1
             k = 1
             for p in f.peers:
-                print("\t%i) %s %s" %(k, p.ip, p.porta))
+                print("\t%i) %s %s" %(k, p.ip, p.port))
                 k += 1
         while True:
             fileIndex = input("Selezionare il file da scaricare: ")
