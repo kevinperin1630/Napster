@@ -52,6 +52,16 @@ class Query:
         fetched, n_fileRimossi = Query.ExecuteQuery(conn, cur, query, True)
         query = "DELETE FROM P2P_File WHERE sessionID = '%s'" %sessionID
         Query.ExecuteQuery(conn, cur, query, True)
+
+        query = "SELECT * FROM File"
+        fetched, num = Query.ExecuteQuery(conn, cur, query, True)
+        for md5 in fetched:
+            query = "SELECT * FROM P2P_File WHERE md5 = '%s'" %md5
+            fetched, num_offering = Query.ExecuteQuery(conn, cur, query, True)
+            if num_offering == 0:
+                query = "DELETE FROM File WHERE md5 = '%s'" %md5
+                fetched, num = Query.ExecuteQuery(conn, cur, query, True)
+
         query = "DELETE FROM P2P WHERE sessionID = '%s'" %sessionID
         Query.ExecuteQuery(conn, cur, query, True)
         if conn:
