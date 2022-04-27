@@ -14,7 +14,7 @@ class MessagesP2P:
         log.AddLog("Invio richiesta di login (LOGI)\n")
 
     def AddFileRequest(self, s, md5, filename, log):
-        filename = Messages.Fill(filename, 100, '|')
+        filename = Messages.Fill(filename, 100, ' ')
         packet = "ADDF%s%s%s" %(self.sessionId, md5, filename)
         s.send(packet.encode())
         log.AddLog("Invio richiesta di aggiunta file (ADDF)\n")
@@ -25,7 +25,7 @@ class MessagesP2P:
         log.AddLog("Invio richiesta di rimozione file (DELF)\n")
 
     def FindFileRequest(self, s, search_string, log):
-        search_string = Messages.Fill(search_string, 20, '|')
+        search_string = Messages.Fill(search_string, 20, ' ')
         packet = "FIND%s%s" %(self.sessionId, search_string)
         s.send(packet.encode())
         log.AddLog("Invio stringa di ricerca (FIND)\n")
@@ -73,7 +73,7 @@ class MessagesP2P:
             num_found = int(Messages.DeFill(s.recv(3).decode(), '0'))
             for i1 in range (num_found):
                 md5 = s.recv(32).decode()
-                filename = Messages.DeFill(s.recv(100).decode(), '|')
+                filename = Messages.DeFill(s.recv(100).decode(), ' ')
                 file = File(md5, filename)
                 num_offering = int(Messages.DeFill(s.recv(3).decode(), '0'))
                 for i2 in range(num_offering):
@@ -135,7 +135,7 @@ class MessagesServer:
             md5 = f.md5
             nome = f.name
             num_copies = str(len(f.peers))
-            nome = Messages.Fill(nome, 100, '|')
+            nome = Messages.Fill(nome, 100, ' ')
             num_copies = Messages.Fill(num_copies, 3, '0')
             packet += md5
             packet += nome
@@ -177,7 +177,7 @@ class MessagesServer:
         elif messageHeader == "ADDF":
             sessionId = s.recv(16).decode()
             md5 = s.recv(32).decode()
-            filename = Messages.DeFill(s.recv(100).decode(), '|')
+            filename = Messages.DeFill(s.recv(100).decode(), ' ')
             return messageHeader, sessionId, md5, filename
         elif messageHeader == "DELF":
             sessionId = s.recv(16).decode()
@@ -185,7 +185,7 @@ class MessagesServer:
             return messageHeader, sessionId, md5
         elif messageHeader == "FIND":
             sessionId = s.recv(16).decode()
-            search_string = Messages.DeFill(s.recv(20).decode(), '|')
+            search_string = Messages.DeFill(s.recv(20).decode(), ' ')
             return messageHeader, sessionId, search_string
         elif messageHeader == "RREG":
             sessionId = s.recv(16).decode()
